@@ -1,26 +1,28 @@
-version: 0.0
-os: linux
-files:
-  - source: backend.jar
-    destination: /opt/chatapp
-hooks:
-  ApplicationStop:
-    - location: scripts/stop_server.sh
-      timeout: 300
-      runas: root
-  BeforeInstall:
-    - location: scripts/before_install.sh
-      timeout: 300
-      runas: root
-  AfterInstall:
-    - location: scripts/after_install.sh
-      timeout: 300
-      runas: root
-  ApplicationStart:
-    - location: scripts/start_server.sh
-      timeout: 300
-      runas: root
-  ValidateService:
-    - location: scripts/validate.sh
-      timeout: 60
-      runas: root
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      java: corretto11
+    commands:
+      - echo "Installing backend build dependencies"
+  build:
+    commands:
+      - echo "Building backend"
+      - cd backend
+      - mvn -B clean package -DskipTests
+      - ART_JAR=$(ls target/*.jar | head -n 1)
+      - cp "$ART_JAR" ../backend.jar
+      - cd ..
+  post_build:
+    commands:
+      - echo "Preparing CodeDeploy artifact zip"
+      - mkdir -p codedeploy_artifact
+      - cp backend.jar codedeploy_artifact/backend.jar
+      - cp backend/deploy/appspec.yml codedeploy_artifact/
+      - cp -r backend/deploy/scripts codedeploy_artifact/scripts
+      - cd codedeploy_artifact
+      - zip -r ../backend-codedeploy.zip .
+artifacts:
+  files:
+    - backend-codedeploy.zip
