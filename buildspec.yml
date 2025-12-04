@@ -1,26 +1,42 @@
 version: 0.2
 
+env:
+  variables:
+    REGION: "ap-south-1"    # update if needed
+
 phases:
   install:
     runtime-versions:
       java: corretto11
     commands:
-      - echo "Installing backend build dependencies"
+      - echo "===> INSTALL PHASE"
+      - java -version || true
+      - mvn -v || true
+      - echo "Ensure we are in: $(pwd)"
+  pre_build:
+    commands:
+      - echo "===> PRE_BUILD"
+      - ls -la
   build:
     commands:
-      - echo "Building backend"
-      - cd backend
+      - echo "===> BUILD: going into backend and packaging"
+      - cd backend || (echo "backend folder not found" && exit 1)
+      - pwd
+      - ls -la
       - mvn -B clean package -DskipTests
-      - ART_JAR=$(ls target/*.jar | head -n 1)
+      - echo "mvn exit code: $?"
+      - ls -la target || true
+      - ART_JAR=$(find target -maxdepth 1 -type f -name "*.jar" | head -n 1 || true)
+      - if [ -z "$ART_JAR" ]; then echo "ERROR: No jar produced in backend/target"; exit 2; fi
+      - echo "Found jar: $ART_JAR"
       - cp "$ART_JAR" ../backend.jar
-      - cd ..
   post_build:
     commands:
-      - echo "Preparing CodeDeploy artifact zip"
+      - echo "===> POST_BUILD: package codedeploy artifact"
       - mkdir -p codedeploy_artifact
-      - cp backend.jar codedeploy_artifact/backend.jar
-      - cp backend/deploy/appspec.yml codedeploy_artifact/
-      - cp -r backend/deploy/scripts codedeploy_artifact/scripts
+      - cp ../backend.jar codedeploy_artifact/backend.jar || (echo "cp failed" && exit 1)
+      - cp backend/deploy/appspec.yml codedeploy_artifact/ || (echo "appspec missing" && exit 1)
+      - cp -r backend/deploy/scripts codedeploy_artifact/ || (echo "scripts missing" && exit 1)
       - cd codedeploy_artifact
       - zip -r ../backend-codedeploy.zip .
 artifacts:
