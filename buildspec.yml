@@ -2,7 +2,7 @@ version: 0.2
 
 env:
   variables:
-    REGION: "ap-south-1"    # change region if needed
+    REGION: "ap-south-1"   # change if needed
 
 phases:
   install:
@@ -10,30 +10,35 @@ phases:
       java: corretto11
     commands:
       - echo "===> INSTALL PHASE"
+      - echo "java version:"
       - java -version || true
+      - echo "mvn version (if present):"
       - mvn -v || true
-      - echo "Working dir: $(pwd)"
+      - echo "pwd: $(pwd)"
   pre_build:
     commands:
-      - echo "===> PRE_BUILD"
+      - echo "===> PRE_BUILD PHASE"
+      - pwd
       - ls -la
   build:
     commands:
-      - echo "===> BUILD: enter backend and package"
-      - if [ ! -d "backend" ]; then echo "ERROR: backend folder missing" && exit 1; fi
+      - echo "===> BUILD PHASE: entering backend"
+      - if [ ! -d "backend" ]; then echo "ERROR: backend folder not found"; exit 1; fi
       - cd backend
       - pwd
       - ls -la
+      - echo "Running mvn package (skip tests)"
       - mvn -B clean package -DskipTests
       - echo "mvn exit code: $?"
+      - echo "Listing target directory"
       - ls -la target || true
-      - ART_JAR=$(find target -maxdepth 1 -type f -name "*.jar" | head -n 1)
-      - if [ -z "$ART_JAR" ]; then echo "ERROR: No jar produced in backend/target" && exit 2; fi
-      - echo "Found jar: $ART_JAR"
+      - ART_JAR=$(find target -maxdepth 1 -type f -name "*.jar" | head -n 1 || true)
+      - if [ -z "$ART_JAR" ]; then echo "ERROR: No jar produced in backend/target"; exit 2; fi
+      - echo "Found artifact: $ART_JAR"
       - cp "$ART_JAR" ../backend.jar
   post_build:
     commands:
-      - echo "===> POST_BUILD: packaging codedeploy artifact"
+      - echo "===> POST_BUILD PHASE: packaging artifact for CodeDeploy"
       - mkdir -p codedeploy_artifact
       - cp ../backend.jar codedeploy_artifact/backend.jar
       - cp backend/deploy/appspec.yml codedeploy_artifact/
